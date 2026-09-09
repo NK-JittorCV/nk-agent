@@ -1,0 +1,10 @@
+.venv/
+.uv-cache/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.jittor-cache*/
+.tiny-convert.*/
+*.py[cod]
+checkpoints/
+outputs/

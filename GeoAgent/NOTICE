@@ -1,0 +1,7 @@
+GeoAgent-Jittor includes a Jittor adaptation of the Qwen2.5-VL architecture
+and image preprocessing behavior documented and implemented by the Qwen Team
+and Hugging Face Inc. in Transformers 4.55.4 (Apache License 2.0).
+
+The GeoAgent model weights are authored by the GeoAgent project and are
+licensed separately under CC BY-NC 4.0.
+
