@@ -1,36 +1,69 @@
-# GeoAgent-Jittor
+<div align="center">
 
-`ghost233lism/GeoAgent`（Qwen2.5-VL-7B）的纯 Jittor 单图推理实现。最终推理进程不安装、导入或调用 PyTorch/Transformers；模型层、视觉编码、KV cache 与贪心解码均由 Jittor 执行。
+# GeoAgent: Jittor Implementation
 
-> 模型与数据采用 CC BY-NC 4.0，仅限非商业用途。模型文件不会提交到本仓库。
+Pure-Jittor inference for **GeoAgent: Learning to Geolocate Everywhere with Reinforced Geographic Characteristics**
 
-## 环境
+[Project Page](https://ghost233lism.github.io/GeoAgent-page/) ·
+[Paper](https://huggingface.co/papers/2602.12617) ·
+[Model Weights](https://huggingface.co/ghost233lism/GeoAgent) ·
+[Original Code](https://github.com/HVision-NKU/GeoAgent)
 
-- Python 3.11（由 `uv` 管理）
-- Jittor 1.3.11.0
-- NVIDIA CUDA GPU；建议普通图片至少留出 40GB 显存
-- 首次运行会编译 Jittor CUDA 内核，耗时可能较长
+<p>
+  <img src="https://img.shields.io/badge/Python-3.10--3.12-blue.svg" alt="Python 3.10–3.12">
+  <img src="https://img.shields.io/badge/Jittor-1.3.11-orange.svg" alt="Jittor 1.3.11">
+  <img src="https://img.shields.io/badge/License-Apache--2.0-green.svg" alt="Apache-2.0">
+</p>
+
+</div>
+
+## Overview
+
+[GeoAgent](https://github.com/HVision-NKU/GeoAgent) is a vision-language model for image geolocation. Given a single image, it analyzes geographic clues, produces an interpretable reasoning chain, and predicts a fine-grained location.
+
+This directory provides a pure [Jittor](https://github.com/Jittor/jittor) implementation of GeoAgent based on Qwen2.5-VL-7B. The inference process does not install, import, or invoke PyTorch or Transformers: the language model, vision encoder, multimodal RoPE, KV cache, and greedy decoding are all implemented with Jittor. PyTorch is used only in the optional, isolated checkpoint-conversion environment.
+
+### Features
+
+- Pure-Jittor single-image inference with BF16 weights.
+- Official GeoAgent prompts and Qwen2.5-VL dynamic image resolution.
+- FP32 accumulation for attention and RMSNorm to improve numerical stability.
+- KV-cached deterministic greedy decoding.
+- Resumable download and shard-by-shard checkpoint conversion.
+- Configurable chunked attention for lower peak memory usage.
+- Structured JSON output formatting with raw-text fallback.
+
+## Installation
+
+### Requirements
+
+- Linux and an NVIDIA CUDA GPU (40 GB or more GPU memory is recommended)
+- Python `>=3.10,<3.13`
+- Jittor `1.3.11.0`
+- [uv](https://docs.astral.sh/uv/)
+
+The first run compiles Jittor CUDA kernels and can therefore take longer than later runs.
 
 ```bash
-proxy_on
+git clone https://github.com/NK-JittorCV/nk-agent.git
+cd nk-agent/GeoAgent
 uv sync
 ```
 
-项目配置已把 uv 缓存放在项目内的 `.uv-cache/`。Jittor 编译缓存默认由 CLI 放在 `.jittor-cache/`。
+The uv package cache and Jittor compilation cache are kept inside `.uv-cache/` and `.jittor-cache/`, respectively.
 
-## 1. 下载并转换权重
+## Model Weights
 
-转换工具使用隔离的可选环境，允许 PyTorch；输出是 Jittor 能直接读取的四个 BF16 `.bin` 分片。中断后重新运行会复用已下载和已转换的分片。
+The original GeoAgent checkpoint is available from the [GeoAgent model page on Hugging Face](https://huggingface.co/ghost233lism/GeoAgent). Convert it into four BF16 shards that can be loaded directly by Jittor:
 
 ```bash
-proxy_on
 uv run --isolated --extra convert geoagent-jittor-convert \
   --model-id ghost233lism/GeoAgent \
   --source-dir checkpoints/GeoAgent-hf \
   --output-dir checkpoints/GeoAgent-jittor
 ```
 
-若原始 Hugging Face 仓库已在本地：
+The command resumes interrupted downloads and reuses completed shards. If the original Hugging Face checkpoint is already available locally, skip downloading it:
 
 ```bash
 uv run --isolated --extra convert geoagent-jittor-convert \
@@ -39,18 +72,46 @@ uv run --isolated --extra convert geoagent-jittor-convert \
   --output-dir checkpoints/GeoAgent-jittor
 ```
 
-## 2. 单图推理
+## Quick Inference
 
 ```bash
 uv run geoagent-jittor \
   --model-path checkpoints/GeoAgent-jittor \
-  --image /path/to/street.jpg \
+  --image examples/bus.jpg \
   --max-new-tokens 2048
 ```
 
-默认使用官方 GeoAgent system/user prompt、Qwen 官方动态分辨率上限、BF16 权重、FP32 attention/RMSNorm 累加、KV cache 和确定性贪心生成。FP32 累加用于避免 BF16 舍入误差在 GeoAgent 的尖锐注意力分布中被放大；因此本实现优先保证可用性和输出质量，而非速度。可用 `--attention-chunk-size` 降低注意力峰值显存（值越小越慢）。合法 JSON（包括常见的 Markdown JSON 代码围栏）会格式化输出；否则保留模型原文并给出警告。
+The command prints formatted JSON when the model returns valid JSON, including the common Markdown JSON fence. Otherwise, the original model response is preserved and a warning is emitted.
 
-## 开发检查
+### Main Options
+
+| Option | Description |
+|---|---|
+| `--model-path` | Directory containing the converted Jittor checkpoint. |
+| `--image` | Path to one local input image. |
+| `--max-new-tokens` | Maximum number of newly generated tokens. |
+| `--dtype` | Model dtype: `bfloat16` (default), `float16`, or `float32`. |
+| `--attention-chunk-size` | Smaller values reduce attention peak memory at the cost of speed. |
+| `--jittor-home` | Custom writable directory for the Jittor compilation cache. |
+
+## Jittor Inference Speed
+
+The following is a single-run reference measurement of this implementation. It intentionally does not compare against PyTorch. Actual latency varies with image resolution, output length, GPU load, and whether Jittor kernels have already been compiled.
+
+| Item | Setting / Result |
+|---|---|
+| GPU | NVIDIA RTX 6000D, 96 GB (Compute Capability 12.0) |
+| Software | Python 3.11, Jittor 1.3.11.0, CUDA 12.9 |
+| Precision | BF16 weights; FP32 attention/RMSNorm accumulation |
+| Input | `examples/bus.jpg`, 810 × 1080, 1,131 image tokens |
+| Generation | 128 new tokens, token-limit stop |
+| Weight loading | 23.4 s |
+| Generation | 73.2 s (about 1.75 new tokens/s) |
+| End-to-end process | 103.4 s |
+
+The Jittor compilation cache was already warm. The generation timing covers visual/text prefill plus autoregressive decoding, so the derived throughput is a workload-level figure rather than a steady-state decode-only rate. End-to-end time additionally includes process and framework startup, preprocessing, checkpoint loading, and output rendering.
+
+## Development
 
 ```bash
 uv sync --group dev
@@ -58,6 +119,19 @@ uv run --group dev ruff check .
 uv run --group dev pytest -q
 ```
 
-## 实现来源与许可
+## Citation
 
-架构和预处理公式依据 Hugging Face Transformers 4.55.4 中 Apache-2.0 许可的 Qwen2.5-VL 实现重新表达为 Jittor。仓库代码采用 Apache-2.0；GeoAgent 权重、其输出及上游项目仍受原作者 CC BY-NC 4.0 条款约束。
+```bibtex
+@article{jin2026geoagent,
+  title={GeoAgent: Learning to Geolocate Everywhere with Reinforced Geographic Characteristics},
+  author={Jin, Modi and Zhang, Yiming and Sun, Boyuan and Zhang, Dingwen and Cheng, Ming-Ming and Hou, Qibin},
+  journal={arXiv preprint arXiv:2602.12617},
+  year={2026}
+}
+```
+
+## License and Acknowledgements
+
+This Jittor implementation is released under the Apache-2.0 license. GeoAgent weights, model outputs, and upstream data remain subject to the original [CC BY-NC 4.0 license](https://creativecommons.org/licenses/by-nc/4.0/) and are intended for non-commercial use.
+
+The architecture and preprocessing formulas were reimplemented from the Apache-2.0-licensed Qwen2.5-VL implementation in Hugging Face Transformers 4.55.4. We thank the authors of [GeoAgent](https://github.com/HVision-NKU/GeoAgent), [Qwen2.5-VL](https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct), and [Jittor](https://github.com/Jittor/jittor).
