@@ -27,7 +27,7 @@ The Jittor implementation includes the Qwen2.5-VL-7B vision encoder and language
 | **GeoAgent** | Image geolocation | Qwen2.5-VL-7B | Inference available | [Jittor Code](./GeoAgent) · [Project Page](https://ghost233lism.github.io/GeoAgent-page/) · [Model Weights](https://huggingface.co/ghost233lism/GeoAgent) · [Original Code](https://github.com/HVision-NKU/GeoAgent) |
 
 <p align="center">
-  <img src="GeoAgent/examples/bus.jpg" width="42%" alt="GeoAgent example input">
+  <img src="GeoAgent/examples/test.jpg" width="60%" alt="GeoAgent example input">
 </p>
 
 For installation, checkpoint conversion, inference commands, and measured Jittor speed, see the [GeoAgent documentation](./GeoAgent/README.md).

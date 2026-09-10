@@ -77,7 +77,7 @@ uv run --isolated --extra convert geoagent-jittor-convert \
 ```bash
 uv run geoagent-jittor \
   --model-path checkpoints/GeoAgent-jittor \
-  --image examples/bus.jpg \
+  --image examples/test.jpg \
   --max-new-tokens 2048
 ```
 
@@ -103,11 +103,11 @@ The following is a single-run reference measurement of this implementation. It i
 | GPU | NVIDIA RTX 6000D, 96 GB (Compute Capability 12.0) |
 | Software | Python 3.11, Jittor 1.3.11.0, CUDA 12.9 |
 | Precision | BF16 weights; FP32 attention/RMSNorm accumulation |
-| Input | `examples/bus.jpg`, 810 × 1080, 1,131 image tokens |
+| Input | `examples/test.jpg`, 960 × 640, 782 image tokens |
 | Generation | 128 new tokens, token-limit stop |
-| Weight loading | 23.4 s |
-| Generation | 73.2 s (about 1.75 new tokens/s) |
-| End-to-end process | 103.4 s |
+| Weight loading | 26.7 s |
+| Generation | 58.9 s (about 2.17 new tokens/s) |
+| End-to-end process | 93.2 s |
 
 The Jittor compilation cache was already warm. The generation timing covers visual/text prefill plus autoregressive decoding, so the derived throughput is a workload-level figure rather than a steady-state decode-only rate. End-to-end time additionally includes process and framework startup, preprocessing, checkpoint loading, and output rendering.
 
